@@ -1,0 +1,13 @@
+body {
+    background-color: #777;
+}
+
+.dpl-table tbody tr:nth-child(odd) {
+    background-color: #EEE;
+}
+
+/* default CSS rule override */
+.skin-holder .skin-ipc-dpl-header {
+    color: #FFFFFF;
+}
+

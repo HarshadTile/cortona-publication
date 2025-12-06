@@ -1,0 +1,13 @@
+.skin-holder.disabled {
+    cursor: wait;    
+}
+
+.skin-holder.disabled .skin-control,
+.skin-holder.disabled .skin-img-button,
+.skin-holder.disabled .dpl-table,
+.skin-holder.disabled label,
+.skin-holder.disabled svg,
+.skin-holder.disabled canvas {
+    pointer-events: none;
+    cursor: wait;
+}

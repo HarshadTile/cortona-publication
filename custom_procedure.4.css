@@ -1,0 +1,15 @@
+.doc-container .tiramisu-proc-title {
+    background-color: #EEE;
+    display: block;
+    margin-left: 0 !important;
+    margin-bottom: 1em;
+}
+
+.doc-container .tiramisu-proc-item {
+    border-radius: 0;
+    margin-left: 1em !important;
+}
+
+.doc-container .tiramisu-proc-item.play-context:before {
+    left: -2em;
+}

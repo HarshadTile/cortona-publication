@@ -1,0 +1,9 @@
+{
+    "solo-skin-ipc-dpl-header": {
+        "sheet": "HOJA",
+        "title": "Catálogo De Piezas Ilustradas"
+    },
+    "solo-skin-ipc-toolbar": {
+        "labelSheet": "Hoja"
+    }
+}

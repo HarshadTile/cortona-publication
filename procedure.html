@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Cortona3D Solo Universal Viewer</title>
+    <script src="res/solo/Cortona3DSolo.js"></script>
+    <style>
+        html,
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        (function (solo) {
+            solo.baseURL = 'res/solo/';
+            solo.use('skin', {
+                baseUrl: 'res/uniview/'
+            });
+            solo.skin.create('app')
+                .use('solo-uniview', {
+                    baseUrl: 'spec/',
+                    totalMemory: 128,
+                    src: 'data/procedure.cortona3d',
+                    factory: solo.app.util.toUrl('custom_procedure.' + location.search.substring(1) + '.js',
+                        location.href)
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    solo.dispatch('uniview.error', error);
+                });
+        })(Cortona3DSolo);
+    </script>
+</body>
+
+</html>

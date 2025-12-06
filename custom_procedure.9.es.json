@@ -1,0 +1,11 @@
+{
+    "procedure-with-document": {
+        "labelShowComments": "Mostrar comentarios en línea"
+    },
+    "solo-skin-procedure-settings-panel": {
+        "labelSpeed": "Acelerar",
+        "labelFreezeViewpoint": "Congelar punto de vista",
+        "labelLockStep": "Bloqueo",
+        "labelDisableAlertMessages": "Deshabilitar mensajes de alerta"
+    }
+}
