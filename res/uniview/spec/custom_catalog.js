@@ -3,6 +3,14 @@ define(function (require, exports, module) {
 
         console.log('[CORTONA] custom_catalog.js (solo-uniview) loaded');
 
+        // Try to get the main engine object
+        var engine = solo || window.Cortona3DSolo || window.solo;
+
+        if (!engine) {
+            console.error('[CORTONA] Cannot find Cortona engine object');
+            return;
+        }
+
         // --- map getItemInfo result to simple JSON ---
         function mapItemInfo(info) {
             if (!info) return null;
@@ -33,25 +41,28 @@ define(function (require, exports, module) {
             console.log('[CORTONA] Sent metadata to parent:', mapped);
         }
 
-        // --- common handler for all selection-related events ---
-        function handleSelection(eventName, eventInfo) {
+        // Handle a candidate selection payload from dispatch
+        function handleSelectionFromPayload(eventName, payload) {
             try {
-                console.log('[CORTONA] Event:', eventName, 'payload:', eventInfo);
+                if (!payload) return;
 
                 var itemId =
-                    eventInfo &&
-                    (eventInfo.callout ||
-                        eventInfo.item ||
-                        eventInfo.parent ||
-                        eventInfo.id ||
-                        eventInfo.row);
+                    payload.callout ||
+                    payload.item ||
+                    payload.parent ||
+                    payload.id ||
+                    payload.row;
 
-                if (!itemId) {
-                    console.warn('[CORTONA] No itemId for event', eventName, eventInfo);
+                if (!itemId) return;
+
+                if (!engine.uniview || !engine.uniview.ixml || !engine.uniview.ixml.getItemInfo) {
+                    console.warn('[CORTONA] ixml.getItemInfo not ready yet');
                     return;
                 }
 
-                var info = solo.uniview.ixml.getItemInfo(itemId);
+                console.log('[CORTONA] Selection-like event:', eventName, 'payload:', payload);
+
+                var info = engine.uniview.ixml.getItemInfo(itemId);
                 console.log('[CORTONA] getItemInfo result:', info);
 
                 var mapped = mapItemInfo(info);
@@ -59,39 +70,33 @@ define(function (require, exports, module) {
 
                 sendToParent(mapped);
             } catch (e) {
-                console.error('[CORTONA] Error in selection handler for', eventName, e);
+                console.error('[CORTONA] Error in handleSelectionFromPayload for', eventName, e);
             }
         }
 
-        // --- actually attach handlers ---
-        function attachHandlers() {
-            console.log('[CORTONA] Attaching selection handlers (custom_catalog.js)');
-
-            ['uniview.didSelect', 'uniview.selection.changed', 'uniview.hit']
-                .forEach(function (ev) {
-                    try {
-                        solo.on(ev, handleSelection.bind(null, ev));
-                        console.log('[CORTONA] Attached handler for', ev);
-                    } catch (e) {
-                        console.error('[CORTONA] Could not attach handler for', ev, e);
-                    }
-                });
+        // --- Wrap engine.dispatch so we see ALL events ---
+        if (!engine.dispatch) {
+            console.error('[CORTONA] engine.dispatch is not available');
+            return;
         }
 
-        // 1) Normal path: wait until document loaded
-        solo.on('uniview.doc.didLoadComplete', function () {
-            console.log('[CORTONA] Doc loaded (didLoadComplete), attaching handlers');
-            attachHandlers();
-        });
+        var originalDispatch = engine.dispatch.bind(engine);
 
-        // 2) Safety path: if doc is already loaded by the time this module runs
-        try {
-            if (solo.uniview && solo.uniview.doc && solo.uniview.doc.rootElement) {
-                console.log('[CORTONA] Doc seems already loaded, attaching handlers immediately');
-                attachHandlers();
+        engine.dispatch = function (eventName, payload) {
+            try {
+                // Only log/capture events that look interesting (have item/callout/row/id)
+                if (payload && (payload.callout || payload.item || payload.row || payload.id)) {
+                    console.log('[CORTONA] dispatch:', eventName, payload);
+                    handleSelectionFromPayload(eventName, payload);
+                }
+            } catch (e) {
+                console.error('[CORTONA] Error in dispatch wrapper', e);
             }
-        } catch (e) {
-            console.warn('[CORTONA] Could not check doc load state', e);
-        }
+
+            // Always call the original dispatch so Cortona keeps working
+            return originalDispatch(eventName, payload);
+        };
+
+        console.log('[CORTONA] dispatch wrapper installed');
     };
 });
