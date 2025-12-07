@@ -16,26 +16,31 @@
 </head>
 
 <body>
-    <script>
-        (function (solo) {
-            solo.baseURL = 'res/solo/';
-            solo.use('skin', {
-                baseUrl: 'res/uniview/'
-            });
-            solo.skin.create('app')
-                .use('solo-uniview', {
-                    baseUrl: 'spec/',
-                    totalMemory: 128,
-                    src: 'data/catalog.cortona3d',
-                    factory: solo.app.util.toUrl('custom_catalog.' + location.search.substring(1) + '.js',
-                        location.href)
-                })
-                .catch(function (error) {
-                    console.error(error);
-                    solo.dispatch('uniview.error', error);
-                });
-        })(Cortona3DSolo);
-    </script>
+   <script src="res/solo/Cortona3DSolo.js"></script>
+<script>
+  (function (solo) {
+      solo.baseURL = 'res/solo/';
+      solo.use('skin', { baseUrl: 'res/ipc/' });
+
+      var catalogId = location.search.substring(1) || '20';
+
+      solo.skin.create('app')
+          .use('uniview-ipc', {
+              baseUrl: 'spec/',
+              src: 'data/catalog.cortona3d',
+              totalMemory: 128,
+              factory: solo.app.util.toUrl(
+                  'custom_catalog.' + catalogId + '.js',
+                  location.href
+              )
+          })
+          .catch(function (error) {
+              console.error(error);
+              solo.dispatch('uniview.error', error);
+          });
+  })(Cortona3DSolo);
+</script>
+
 
        
 
