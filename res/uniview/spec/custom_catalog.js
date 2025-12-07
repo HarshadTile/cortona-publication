@@ -3,7 +3,7 @@ define(function (require, exports, module) {
 
         console.log('[CORTONA] custom_catalog.js (solo-uniview) loaded');
 
-        // Map getItemInfo result to simple JSON
+        // --- map getItemInfo result to simple JSON ---
         function mapItemInfo(info) {
             if (!info) return null;
 
@@ -15,10 +15,11 @@ define(function (require, exports, module) {
                 DESCRIPTION: partMeta.DFP || meta.DESCRIPTION || '',
                 PARTNUMBER: partMeta.PNR || meta.PARTNUMBER || '',
                 QTY: meta.QNA || meta.QTY || '1',
-                INFO: '' // free text if you later add something
+                INFO: '' // extend later if needed
             };
         }
 
+        // --- send JSON to parent (Salesforce LWC iframe) ---
         function sendToParent(mapped) {
             if (!mapped) return;
 
@@ -32,6 +33,7 @@ define(function (require, exports, module) {
             console.log('[CORTONA] Sent metadata to parent:', mapped);
         }
 
+        // --- common handler for all selection-related events ---
         function handleSelection(eventName, eventInfo) {
             try {
                 console.log('[CORTONA] Event:', eventName, 'payload:', eventInfo);
@@ -61,15 +63,35 @@ define(function (require, exports, module) {
             }
         }
 
-        // Attach handlers after document is loaded
-        solo.on('uniview.doc.didLoadComplete', function () {
-            console.log('[CORTONA] Doc loaded, attaching selection handlers (custom_catalog.js)');
+        // --- actually attach handlers ---
+        function attachHandlers() {
+            console.log('[CORTONA] Attaching selection handlers (custom_catalog.js)');
 
             ['uniview.didSelect', 'uniview.selection.changed', 'uniview.hit']
                 .forEach(function (ev) {
-                    solo.on(ev, handleSelection.bind(null, ev));
-                    console.log('[CORTONA] Attached handler for', ev);
+                    try {
+                        solo.on(ev, handleSelection.bind(null, ev));
+                        console.log('[CORTONA] Attached handler for', ev);
+                    } catch (e) {
+                        console.error('[CORTONA] Could not attach handler for', ev, e);
+                    }
                 });
+        }
+
+        // 1) Normal path: wait until document loaded
+        solo.on('uniview.doc.didLoadComplete', function () {
+            console.log('[CORTONA] Doc loaded (didLoadComplete), attaching handlers');
+            attachHandlers();
         });
+
+        // 2) Safety path: if doc is already loaded by the time this module runs
+        try {
+            if (solo.uniview && solo.uniview.doc && solo.uniview.doc.rootElement) {
+                console.log('[CORTONA] Doc seems already loaded, attaching handlers immediately');
+                attachHandlers();
+            }
+        } catch (e) {
+            console.warn('[CORTONA] Could not check doc load state', e);
+        }
     };
 });
