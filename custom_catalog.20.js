@@ -129,10 +129,78 @@ define(function (require, exports, module) {
                             padding: '.8em 0'
                         },
                         '& tbody tr:nth-child(odd)': {
-                            backgroundColor: skin.color(solo.uniview.options.TableBackgroundColor).darken().toString()
+                            backgroundColor: skin
+                                .color(solo.uniview.options.TableBackgroundColor)
+                                .darken()
+                                .toString()
                         }
                     }
                 });
+
+                // ========= NEW CODE (for Salesforce integration) =========
+
+                // Helper: map getItemInfo result to a simple JSON row
+                function mapItemInfo(info) {
+                    if (!info) return null;
+
+                    var meta = info.metadata || {};
+                    var partMeta = (info.part && info.part.metadata) || {};
+
+                    return {
+                        ITEM: meta.ITEM || info.callout || '',
+                        DESCRIPTION: partMeta.DFP || meta.DESCRIPTION || '',
+                        PARTNUMBER: partMeta.PNR || meta.PARTNUMBER || '',
+                        QTY: meta.QNA || meta.QTY || '1',
+                        INFO: '' // put extra field here if you have one
+                    };
+                }
+
+                // Helper: send mapped metadata to parent window (Salesforce LWC iframe)
+                function sendToParent(mapped) {
+                    if (!mapped) return;
+
+                    // For development we use "*" – later you can restrict to your Salesforce domain
+                    window.parent.postMessage(
+                        {
+                            type: 'CORTONA_PART_SELECTED',
+                            payload: mapped
+                        },
+                        '*'
+                    );
+                    console.log('[CORTONA] Sent metadata to parent:', mapped);
+                }
+
+                // Listen to part selection and send metadata out
+                solo.on('uniview.didSelect', function (eventInfo) {
+                    try {
+                        console.log('[CORTONA] didSelect eventInfo:', eventInfo);
+
+                        // Try a few possible fields for the item identifier
+                        var itemId =
+                            eventInfo.callout ||
+                            eventInfo.item ||
+                            eventInfo.parent ||
+                            eventInfo.id ||
+                            eventInfo.row;
+
+                        if (!itemId) {
+                            console.warn('[CORTONA] Could not determine itemId from eventInfo', eventInfo);
+                            return;
+                        }
+
+                        var info = solo.uniview.ixml.getItemInfo(itemId);
+                        console.log('[CORTONA] getItemInfo result:', info);
+
+                        var mapped = mapItemInfo(info);
+                        console.log('[CORTONA] mapped payload:', mapped);
+
+                        sendToParent(mapped);
+                    } catch (e) {
+                        console.error('[CORTONA] Error in didSelect handler', e);
+                    }
+                });
+
+                // ========= END OF NEW CODE =========
 
             })
             .catch(function (error) {
