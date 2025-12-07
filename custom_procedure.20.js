@@ -1,6 +1,8 @@
 define(function (require, exports, module) {
     module.exports = function (skin, options, solo) {
 
+        require('addons/catalog');
+
         var baseColor = skin.color('#B0BDCD'),
             corporateName = 'Demo, Inc.';
 
@@ -12,29 +14,37 @@ define(function (require, exports, module) {
         solo.expand(solo.uniview.options, {
             ToolbarBackgroundColor: baseColor.toString(),
             ToolbarColor: '#000',
-            TableBackgroundColor: baseColor.brighten(25),
-            '2DHighLightColor': '#F00',
-            AutoNumbering: false,
-            HideActions: true
+            '2DHighLightColor': '#F00'
         });
 
         solo.expand(options, {
             logoSrc: solo.app.util.toUrl('res/AS5958.png'),
-            willReturnAlertBody: function (eventInfo) {
-                var h = skin.create;
-                return h('.skin-container', h('img.icon', {
-                    src: 'info.svg'
-                }), h('span', solo.uniview.ixml.getProcedureItemInfo(eventInfo.parent).comment));
-            }
+            filter: [{
+                name: 'qty',
+                label: 'QTY',
+                values: [{
+                    description: 'All',
+                    value: '*'
+                }].concat(solo.catalog.filter.valuesMeta('QNA')),
+                test: solo.catalog.filter.testMeta.bind(null, 'QNA')
+            }]
         });
 
         return skin
-            .use(require('spec/generic_prc'), options)
+            .use(require('uniview-ipc'), options)
             .then(function () {
 
-                var aux = solo.skin.get('aux'),
-                    main = solo.skin.get('main'),
-                    view = solo.skin.get('view');
+                // --- sanity log so we know this file is active ---
+                console.log('[CORTONA] custom_catalog.20.js customization active');
+
+                // custom CSS rules
+                solo.uniview.css.render({
+                    body: {
+                        backgroundColor: baseColor.brighten(25)
+                    }
+                });
+
+                var aux = solo.skin.get('aux');
 
                 /* Component: Download Screenshot */
                 var uiDownloadScreenshot = function (skin, options, solo) {
@@ -50,81 +60,159 @@ define(function (require, exports, module) {
                     });
                 };
 
-                // internal component: screenshot downloader
-                aux.render(uiDownloadScreenshot);
+                /* Component: Custom Drawing Box */
+                var uiDrawingBox = function (skin, options, solo) {
+                    var uiBarToggle = require('./components/bar-toggle'),
+                        uiSeparateDrawing = require('./components/separate-drawing'),
+                        separateDrawing = skin.create(uiSeparateDrawing),
+                        toggleBar = skin.create(uiBarToggle, {
+                            title: 'Drawing'
+                        }),
+                        element = skin.create('.skin-container.drawing-box', toggleBar.$el, separateDrawing);
+                    toggleBar.on('toggled', function (flag) {
+                        element.classList.toggle('collapsed', !flag);
+                    });
+                    solo.uniview.css.render({
+                        '.drawing-box': {
+                            marginTop: '.5em',
+                            minHeight: '33%',
+                            height: '50%',
+                            flex: '0 1 auto',
+                            flexDirection: 'column',
+                            order: 12,
+                            '& .dpl-drawing': {
+                                marginTop: '.5em',
+                                flex: '1 0 auto'
+                            },
+                            '&.collapsed': {
+                                minHeight: 'auto',
+                                height: 'auto',
+                                flex: '0 0 auto',
+                                '& .dpl-drawing': {
+                                    display: 'none'
+                                }
+                            }
+                        }
+                    });
+                    return element;
+                };
 
-                // external component: custom about dialog box
+                // add internal components
+                aux.render(uiDownloadScreenshot);
+                aux.render(uiDrawingBox);
+
+                // add external component: custom about dialog box
                 aux.render(require('./components/modal-about'), {
-                    i18n: solo.uniview.i18n['solo-skin-procedure-context-menu'],
+                    i18n: solo.uniview.i18n['solo-skin-ipc-context-menu'],
                     name: corporateName,
                     logoSrc: options.logoSrc
                 });
-                // external component: custom copyright bar
+                // add external component: custom copyright bar
                 aux.render(require('./components/bar-copyright'), {
                     name: corporateName,
                     url: 'https://demo.cortona3d.com/',
                 });
-                // external component: step graphic
-                view.render(require('./components/step-graphic'));
+                // add external component: metadata inspector
+                aux.render(require('./components/metadata-inspector'));
+                // add external component: animation watchdog
+                skin.render(require('./components/sheet-animation-watchdog'));
 
                 // CSS customization
                 solo.uniview.css.render({
-                    '.skin-holder-aux': {
-                        justifyContent: 'space-between'
+                    '.skin-holder .dpl-container': {
+                        height: 'auto',
+                        flex: '1 1 auto',
+                        maxHeight: '100%'
                     },
-                    '.doc-container': {
-                        '& .tiramisu-proc-item': {
-                            borderRadius: 0,
-                            display: 'list-item',
-                            listStyle: 'decimal',
-                            marginLeft: '1em !important',
-                            '&.play-context:before': {
-                                left: '-2em'
-                            }
-                        },
-                        '& .tiramisu-proc-title': {
-                            backgroundColor: baseColor.brighten(10),
-                            display: 'flex',
-                            marginLeft: '-1em !important',
-                            marginBottom: '1em',
-                            justifyContent: 'space-between',
-                            '& img.logo': {
-                                maxWidth: '64px',
-                                alignSelf: 'center'
-                            },
-                            '& > p': {
-                                margin: 'auto 0.5em'
-                            }
-                        }
+                    '.dpl-part-meta': {
+                        marginTop: '.5em'
                     },
-                    '.procedure-alert': {
-                        '& img.icon': {
-                            width: '5em'
+                    '.dpl-table': {
+                        '& thead td': {
+                            padding: '.8em 0'
                         },
-                        '& .skin-modal-content.skin-container': {
-                            paddingLeft: '1em',
-                            paddingBottom: 0
+                        '& tbody tr:nth-child(odd)': {
+                            backgroundColor: skin
+                                .color(solo.uniview.options.TableBackgroundColor)
+                                .darken()
+                                .toString()
                         }
                     }
                 });
 
-                // Adding a logo to the document title
-                solo.on('uniview.doc.didLoadComplete', function (docElement) {
-                    var titleElement = docElement.querySelector('.tiramisu-proc-title');
-                    titleElement.insertBefore(skin.create('img.logo', {
-                        src: options.logoSrc
-                    }), titleElement.firstChild);
+                // ========= NEW CODE (for Salesforce integration) =========
+
+                // Helper: map getItemInfo result to a simple JSON row
+                function mapItemInfo(info) {
+                    if (!info) return null;
+
+                    var meta = info.metadata || {};
+                    var partMeta = (info.part && info.part.metadata) || {};
+
+                    return {
+                        ITEM: meta.ITEM || info.callout || '',
+                        DESCRIPTION: partMeta.DFP || meta.DESCRIPTION || '',
+                        PARTNUMBER: partMeta.PNR || meta.PARTNUMBER || '',
+                        QTY: meta.QNA || meta.QTY || '1',
+                        INFO: '' // put extra field here if you have one
+                    };
+                }
+
+                // Helper: send mapped metadata to parent window (Salesforce LWC iframe)
+                function sendToParent(mapped) {
+                    if (!mapped) return;
+
+                    window.parent.postMessage(
+                        {
+                            type: 'CORTONA_PART_SELECTED',
+                            payload: mapped
+                        },
+                        '*'
+                    );
+                    console.log('[CORTONA] Sent metadata to parent:', mapped);
+                }
+
+                // Shared handler for multiple selection-related events
+                function handleSelectionEvent(eventName, eventInfo) {
+                    try {
+                        console.log('[CORTONA] Event:', eventName, 'payload:', eventInfo);
+
+                        var itemId =
+                            (eventInfo && (eventInfo.callout ||
+                                           eventInfo.item ||
+                                           eventInfo.parent ||
+                                           eventInfo.id ||
+                                           eventInfo.row));
+
+                        if (!itemId) {
+                            console.warn('[CORTONA] No itemId found for event', eventName, eventInfo);
+                            return;
+                        }
+
+                        var info = solo.uniview.ixml.getItemInfo(itemId);
+                        console.log('[CORTONA] getItemInfo result:', info);
+
+                        var mapped = mapItemInfo(info);
+                        console.log('[CORTONA] mapped payload:', mapped);
+
+                        sendToParent(mapped);
+                    } catch (e) {
+                        console.error('[CORTONA] Error in selection handler for', eventName, e);
+                    }
+                }
+
+                // Listen to several possible selection events
+                ['uniview.didSelect', 'uniview.selection.changed', 'uniview.hit'].forEach(function (ev) {
+                    try {
+                        solo.on(ev, handleSelectionEvent.bind(null, ev));
+                        console.log('[CORTONA] Attached handler for', ev);
+                    } catch (e) {
+                        console.warn('[CORTONA] Could not attach handler for', ev, e);
+                    }
                 });
 
-                // Turn off the settings panel during playback
-                solo.on('app.procedure.didPlay', function () {
-                    solo.dispatch('uniview.settings.toggle', false);
-                });
+                // ========= END OF NEW CODE =========
 
-                // Setting the animation speed
-                solo.dispatch('uniview.settings.toggle', true);
-                solo.dispatch('uniview.settings.setPlaybackSpeed', 4);
-                solo.dispatch('uniview.settings.toggle', false);
             })
             .catch(function (error) {
                 console.error(error);
