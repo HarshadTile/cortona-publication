@@ -11,40 +11,110 @@
         html,
         body {
             margin: 0;
+            height: 100%;
         }
     </style>
 </head>
 
 <body>
-   <script src="res/solo/Cortona3DSolo.js"></script>
-<script>
-  (function (solo) {
-      solo.baseURL = 'res/solo/';
-      solo.use('skin', { baseUrl: 'res/ipc/' });
+    <script>
+        (function (solo) {
+            // --- Base Cortona setup (same as original working example) ---
+            solo.baseURL = 'res/solo/';
 
-      var catalogId = location.search.substring(1) || '20';
+            // Use standard Uniview skin (this exists in your res/uniview folder)
+            solo.use('skin', {
+                baseUrl: 'res/uniview/'
+            });
 
-      solo.skin.create('app')
-          .use('uniview-ipc', {
-              baseUrl: 'spec/',
-              src: 'data/catalog.cortona3d',
-              totalMemory: 128,
-              factory: solo.app.util.toUrl(
-                  'custom_catalog.' + catalogId + '.js',
-                  location.href
-              )
-          })
-          .catch(function (error) {
-              console.error(error);
-              solo.dispatch('uniview.error', error);
-          });
-  })(Cortona3DSolo);
-</script>
+            // Create the app and load the catalog
+            solo.skin.create('app')
+                .use('solo-uniview', {
+                    baseUrl: 'spec/',
+                    totalMemory: 128,
+                    src: 'data/catalog.cortona3d'
+                    // NOTE: no "factory" here -> we don't depend on custom_catalog.20.js
+                })
+                .catch(function (error) {
+                    console.error(error);
+                    solo.dispatch('uniview.error', error);
+                });
 
+            // ============= METADATA & POSTMESSAGE HOOK =============
 
-       
+            // Map Cortona getItemInfo result to simple JSON we can send to Salesforce
+            function mapItemInfo(info) {
+                if (!info) return null;
 
-    
+                var meta = info.metadata || {};
+                var partMeta = (info.part && info.part.metadata) || {};
+
+                return {
+                    ITEM: meta.ITEM || info.callout || '',
+                    DESCRIPTION: partMeta.DFP || meta.DESCRIPTION || '',
+                    PARTNUMBER: partMeta.PNR || meta.PARTNUMBER || '',
+                    QTY: meta.QNA || meta.QTY || '1',
+                    INFO: '' // free text if you later add any
+                };
+            }
+
+            // Send data to parent (Salesforce LWC iframe)
+            function sendToParent(mapped) {
+                if (!mapped) return;
+
+                window.parent.postMessage(
+                    {
+                        type: 'CORTONA_PART_SELECTED',
+                        payload: mapped
+                    },
+                    '*' // later you can restrict to your Salesforce domain
+                );
+                console.log('[CORTONA] Sent metadata to parent:', mapped);
+            }
+
+            // Generic handler for different selection events
+            function handleSelection(eventName, eventInfo) {
+                try {
+                    console.log('[CORTONA] Event:', eventName, 'payload:', eventInfo);
+
+                    var itemId =
+                        eventInfo &&
+                        (eventInfo.callout ||
+                            eventInfo.item ||
+                            eventInfo.parent ||
+                            eventInfo.id ||
+                            eventInfo.row);
+
+                    if (!itemId) {
+                        console.warn('[CORTONA] No itemId for event', eventName, eventInfo);
+                        return;
+                    }
+
+                    var info = solo.uniview.ixml.getItemInfo(itemId);
+                    console.log('[CORTONA] getItemInfo result:', info);
+
+                    var mapped = mapItemInfo(info);
+                    console.log('[CORTONA] mapped payload:', mapped);
+
+                    sendToParent(mapped);
+                } catch (e) {
+                    console.error('[CORTONA] Error in selection handler for', eventName, e);
+                }
+            }
+
+            // Wait until the document is loaded, then attach handlers
+            solo.on('uniview.doc.didLoadComplete', function () {
+                console.log('[CORTONA] Doc loaded, attaching selection handlers');
+
+                ['uniview.didSelect', 'uniview.selection.changed', 'uniview.hit']
+                    .forEach(function (ev) {
+                        solo.on(ev, handleSelection.bind(null, ev));
+                        console.log('[CORTONA] Attached handler for', ev);
+                    });
+            });
+
+        })(Cortona3DSolo);
+    </script>
 </body>
 
 </html>
